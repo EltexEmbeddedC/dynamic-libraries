@@ -1,22 +1,46 @@
+#include <dlfcn.h>
 #include <stdio.h>
 #include "lib/calc.h"
 
-void run();
 void print_menu();
-void do_operation(int choice);
+void perform_operation(int choice,
+                       int (*add)(int, int),
+                       int (*sub)(int, int),
+                       int (*mul)(int, int),
+                       double (*div)(int, int, short*));
 
 int main() {
-  run();
-}
-
-void run() {
   int choice;
+
+  void* handle = dlopen("./libcalc.so", RTLD_LAZY);
+  if (!handle) {
+    fprintf(stderr, "Ошибка: не удалось загрузить библиотеку: %s\n", dlerror());
+    return 1;
+  }
+
+  int (*add)(int, int) = dlsym(handle, "add");
+  int (*sub)(int, int) = dlsym(handle, "sub");
+  int (*mul)(int, int) = dlsym(handle, "mul");
+  double (*div)(int, int, short*) = dlsym(handle, "div");
+
+  char* error;
+  if ((error = dlerror()) != NULL) {
+    fprintf(stderr, "Ошибка: не удалось получить адрес функции: %s\n", error);
+    dlclose(handle);
+    return 1;
+  }
 
   do {
     print_menu();
     scanf("%d", &choice);
-    do_operation(choice);
+    if (choice != 5) {
+      perform_operation(choice, add, sub, mul, div);
+    }
   } while (choice != 5);
+
+  dlclose(handle);
+
+  return 0;
 }
 
 void print_menu() {
@@ -28,7 +52,11 @@ void print_menu() {
       "5) Выход\n");
 }
 
-void do_operation(int choice) {
+void perform_operation(int choice,
+                       int (*add)(int, int),
+                       int (*sub)(int, int),
+                       int (*mul)(int, int),
+                       double (*div)(int, int, short*)) {
   int a, b;
   short error;
   double result;
